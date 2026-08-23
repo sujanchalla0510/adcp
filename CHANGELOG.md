@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.1.20
+
+### Patch Changes
+
+- 6dae516: Correct the OpenRTB/AdCOM `cattax` mappings documented for IAB Content Taxonomy 3.0 and 2.2.
+
 ## 3.1.19
 
 ### Patch Changes
