@@ -1,5 +1,21 @@
 # Changelog
 
+## 3.2.0-beta.10
+
+### Minor Changes
+
+- e206c35: Add the `sales-dooh` specialism and a digital out-of-home, non-guaranteed compliance storyboard using the existing channel, product, placement, canonical-format, play, and DOOH-metric contracts. Exercise typed DOOH placement identifiers, loop/slot timing, screen resolution, and motion facts while keeping canonical `format_options` authoritative for creative acceptance. Extend deterministic delivery simulation to prove `plays` and `dooh_metrics`, document optional vendor-defined attention without making it part of the core DOOH claim, require every 3.2 product-list path to expose resolved canonical formats without a separate source-mode capability, set a 128 KiB MCP interoperability target with `tools/list` pagination guidance, prevent success-payload duplication across MCP text and `structuredContent`, and clarify that sandbox behavior is selected by the resolved account rather than switched on per media-buy request.
+- 253f984: Add optional creative identity to spot-level as-run delivery records so buyers can reconcile each airing with multi-creative package rotations.
+- 5a0aff8: Add DOOH structured selling-unit fields to placements: `dooh_placement_attributes` (slot_duration_seconds, loop_duration_seconds, screen_resolution, motion) and `identifiers[]` on both placement.json and placement-definition.json. Define deterministic publisher/product inheritance, post-merge slot-to-loop validation, versioned OpenOOH identifiers, and canonical-format authority. Add the `dooh-motion-type` enum and supersede pricing-layer loop_duration_seconds in flat-rate-option.json.
+- bdfadfc: Model programmed audio and video streams, including FAST and virtual linear services, as first-class `channel` collections. Collection distributions can identify exact host properties and use a publisher-scoped `platform_channel_id`, while host `adagents.json` declarations provide collection-scoped authorization for owner-sold avails without requiring host-defined placement catalogs. Collection selectors gain a bulk-grant form (`collection_ids` omitted = all collections at that publisher domain) so hosts do not sync owner-assigned IDs; `platform_channel_id` is forbidden in bare `{type, value}` contexts because its identity is `(publisher_domain, value)`. Registry projection now materializes the collection narrowing onto authorization rows, snapshots, and change-feed events (fail-closed when a declared constraint is unparseable), collection-constrained validate queries without collection scope fail closed, and a collection selector naming an external publisher no longer satisfies the ads.txt `managerdomain` explicit-scope gate.
+
+### Patch Changes
+
+- 5cac963: Add end-to-end conformance coverage for external audience dataset binding, isolate sourced audiences by seller account, reject credential-bearing source references, preserve frozen-version response shapes, complete the reference seller's async product-discovery task lifecycle, add executable capability gates to optional creative scenarios, and clarify how storyboard applicability is resolved before dispatch.
+- fb1d7af: Fix invalid channel value "video" in compliance fixture products. The Channel enum has never included "video"; the correct value is "olv" (online video). Affects 19 occurrences across 17 compliance source files.
+- cc51898: Declare the concrete AdCP release represented by development `latest` schema roots so public SDK schema-root validation can bind them without cache overlays.
+- 2edb737: Build deterministic, retained commit-addressed schema PR bundles and validate them against both official SDK generators before protocol changes merge.
+
 ## 3.2.0-beta.9
 
 ### Minor Changes
