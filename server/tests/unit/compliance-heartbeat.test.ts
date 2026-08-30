@@ -19,6 +19,8 @@ const mocks = vi.hoisted(() => ({
   adaptAuthForSdk: vi.fn(),
   revokeUnsupportedPublicBadges: vi.fn(),
   runBadgeFanOut: vi.fn(),
+  acquireAgentExecutionFence: vi.fn(),
+  releaseExecutionFence: vi.fn(),
 }));
 
 vi.mock('../../src/db/compliance-db.js', () => ({
@@ -36,6 +38,12 @@ vi.mock('../../src/db/compliance-db.js', () => ({
 
 vi.mock('../../src/db/client.js', () => ({
   query: mocks.query,
+}));
+
+vi.mock('../../src/db/compliance-refresh-requests-db.js', () => ({
+  ComplianceRefreshRequestsDatabase: class {
+    acquireAgentExecutionFence = mocks.acquireAgentExecutionFence;
+  },
 }));
 
 vi.mock('../../src/addie/services/compliance-testing.js', () => ({
@@ -108,6 +116,11 @@ describe('runComplianceHeartbeatJob', () => {
       dry_run: true,
     });
     mocks.recordComplianceRun.mockResolvedValue({});
+    mocks.releaseExecutionFence.mockResolvedValue(undefined);
+    mocks.acquireAgentExecutionFence.mockResolvedValue({
+      isValid: () => true,
+      release: mocks.releaseExecutionFence,
+    });
   });
 
   it('runs heartbeat against the selected canonical target and passes supported versions to badge fan-out', async () => {
@@ -157,6 +170,45 @@ describe('runComplianceHeartbeatJob', () => {
       adcpVersions: ['3.1'],
       supportedVersions: ['3.0', '3.1'],
     }));
+    expect(mocks.releaseExecutionFence).toHaveBeenCalledOnce();
+  });
+
+  it('defers without executing when an owner refresh holds the agent fence', async () => {
+    mocks.acquireAgentExecutionFence.mockResolvedValueOnce(null);
+
+    const { runComplianceHeartbeatJob } = await import('../../src/addie/jobs/compliance-heartbeat.js');
+    const result = await runComplianceHeartbeatJob({ limit: 1 });
+
+    expect(result).toEqual({ checked: 0, passed: 0, failed: 0, skipped: 1 });
+    expect(mocks.deferComplianceCheckAfterInconclusiveTarget)
+      .toHaveBeenCalledWith('https://agent.example.com/mcp');
+    expect(mocks.comply).not.toHaveBeenCalled();
+  });
+
+  it('does not persist when the shared execution fence is lost during comply', async () => {
+    let fenceValid = true;
+    mocks.acquireAgentExecutionFence.mockResolvedValueOnce({
+      isValid: () => fenceValid,
+      release: mocks.releaseExecutionFence,
+    });
+    mocks.comply.mockImplementationOnce(async () => {
+      fenceValid = false;
+      return {
+        overall_status: 'passing',
+        summary: { headline: 'Stale result' },
+        agent_profile: { adcp_supported_versions: ['3.1'] },
+      };
+    });
+
+    const { runComplianceHeartbeatJob } = await import('../../src/addie/jobs/compliance-heartbeat.js');
+    const result = await runComplianceHeartbeatJob({ limit: 1 });
+
+    expect(result).toEqual({ checked: 0, passed: 0, failed: 0, skipped: 1 });
+    expect(mocks.recordComplianceRun).not.toHaveBeenCalled();
+    expect(mocks.runBadgeFanOut).not.toHaveBeenCalled();
+    expect(mocks.deferComplianceCheckAfterInconclusiveTarget)
+      .toHaveBeenCalledWith('https://agent.example.com/mcp');
+    expect(mocks.releaseExecutionFence).toHaveBeenCalledOnce();
   });
 
   it('counts malformed saved Basic auth as a checked failure', async () => {
